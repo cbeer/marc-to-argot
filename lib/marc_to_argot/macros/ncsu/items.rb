@@ -208,7 +208,7 @@ module MarcToArgot
               acc << item.to_json if item
             end
             populate_context!(items, rec, ctx)
-            map_call_numbers!(ctx, items)
+            map_call_numbers_from_items!(ctx, items)
           end
         end
       end

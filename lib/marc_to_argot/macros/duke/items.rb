@@ -83,7 +83,7 @@ module MarcToArgot
             ctx.output_hash['location_hierarchy'] = arrays_to_hierarchy(locations) if locations
             ctx.output_hash['barcodes'] = barcodes if barcodes.any?
 
-            map_call_numbers!(ctx, items)
+            map_call_numbers_from_items!(ctx, items)
           end
         end
 

@@ -12,7 +12,7 @@ module MarcToArgot
         #   `reverse_shelfkey`,
         #   `normalized_call_numbers`,
         #   `lcc_callnum_classification`
-        def map_call_numbers!(ctx, items)
+        def map_call_numbers_from_items!(ctx, items)
           call_numbers = extract_call_numbers(items)
           out = ctx.output_hash
           ctx.output_hash['call_number_schemes'] = call_numbers.keys

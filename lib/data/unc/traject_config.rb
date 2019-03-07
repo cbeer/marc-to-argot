@@ -48,6 +48,9 @@ to_field 'virtual_collection', extract_marc(settings['specs'][:virtual_collectio
 
 to_field 'names', names
 
+################################################
+# donor
+######
 def process_donor_marc(rec)
   donors = []
   Traject::MarcExtractor.cached('790|1 |abcdgqu:791|2 |abcdfg', alternate_script: false).each_matching_line(rec) do |field, spec, extractor|
@@ -68,9 +71,6 @@ def process_donor_marc(rec)
   return donors
 end
 
-################################################
-# donor
-######
 to_field 'donor' do |rec, acc|
   donors = process_donor_marc(rec)
   donors.each { |d| acc << d } if donors.size > 0
@@ -91,7 +91,7 @@ end
 
 
 ################################################
-# oclc_number, sersol_number, rollup_id
+# oclc_number, sersol_number, rollup_id, vendor_marc_id
 # 001, 003, 035
 ######\
 each_record do |rec, cxt|
@@ -203,7 +203,7 @@ to_field 'items' do |rec, acc, ctx|
 
       #set Availability facet value affirmatively
       ctx.output_hash['available'] = 'Available' if is_available?(items)
-      map_call_numbers!(ctx, items)
+      map_call_numbers_from_items!(ctx, items)
 
       #set location facet values
       ilocs = items.collect { |it| it['loc_b'] }
@@ -219,13 +219,17 @@ to_field 'items' do |rec, acc, ctx|
   end 
 end
 
-################################################
-# Holdings
-######
-
 each_record do |rec, cxt|
+  out = cxt.output_hash
+  ################################################
+  # Holdings
+  ######
   holdings(rec, cxt)
 
+  ################################################
+  # Shared records
+  ######
+  
   # Add and manipulate fields for TRLN shared records
   case cxt.clipboard[:shared_record_set]
   when 'dws'
@@ -243,11 +247,52 @@ each_record do |rec, cxt|
     add_record_data_source(cxt, 'Shared Records')
     add_record_data_source(cxt, 'ASP')
     add_virtual_collection(cxt, 'TRLN Shared Records. Alexander Street Press videos.')
-    ar = cxt.output_hash['note_access_restrictions']
+    ar = cxt.out['note_access_restrictions']
     ar.map{ |e| e.gsub!('UNC Chapel Hill-', '') } if ar
   end
 
   remove_print_from_archival_material(cxt)
 
+  ################################################
+  # Eres call numbers
+  ######
+
+=begin
+print book to get test values from: UNCb9376666
+\"call_no\":\"ML3556 .B57 2018\"}
+"shelfkey": "lc:ML.3556.B57.2018"
+"reverse_shelfkey": "lc:DE}WUUT}OUS}XZYR",
+"call_number_schemes": ["LC"],
+
+ebook of same title: b9450193
+IF NO 050
+b8134631a	=090  \\$ax
+b5568948a	=090  \\$aKF9236.Z9$bS965 Electronic
+b9021912a	=090  \\$aPS3218.O775$bI52 2014 ebook
+
+=end
+
+if out['items'].nil? && out['holdings'].nil?
+  tmp = []
+  Traject::MarcExtractor.cached('050ab:090ab', alternate_script: false).each_matching_line(rec) do |field, spec, extractor|
+    next if field.value == 'x'
+    
+    h = {}
+    h['cn_scheme'] = 'LC' if field.tag == '050' || field.tag == '090'
+    
+    cn = field.value.sub(/ *(eb|electronic|e-?book)$/i, '')
+    
+    h['call_no'] = cn
+    tmp << h
+  end
+
+  map_call_numbers_from_items!(cxt, tmp)
+  out['zzz'] = tmp
+  
+end
+
+
+  
   Logging.mdc.clear
 end
+
